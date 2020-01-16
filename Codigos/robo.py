@@ -45,8 +45,8 @@ usf = UltrasonicSensor(ent_us_fr)
 sound = Sound()
 btn = Button()
 
-rgbmax_dir = 0
-rgbmax_esq = 0
+rgbmax_dir = [250,250,250]
+rgbmax_esq = [250,250,250]
 
 elapsed = time() - time_start
 logger.info("Time for declarations: {}s".format(elapsed))
@@ -73,7 +73,6 @@ def RGBtoHSV(rgb):
     s = z/(x+1)
     v = x/255
     hsv_lido = [h,s,v]
-    logger.debug('hsv_lido = {}'.format(hsv_lido))
     return hsv_lido
 
 def escalarRGB(rgb_in,rgb_max):
@@ -85,8 +84,7 @@ def escalarRGB(rgb_in,rgb_max):
         if rgb_cor[i] > 255:
             rgb_cor[i] = 255
         if rgb_cor[i] < 0:
-            rgb_cor[i] = 0
-    logger.debug('rgb_cor = {}'.format(rgb_cor))    
+            rgb_cor[i] = 0    
     return rgb_cor
 
 def girar_pro_lado(lado,angulo):
@@ -157,6 +155,7 @@ def testar_preto():
             return True
 
 def alinhamento(): 
+    logger.warning("Ta alinhando")
     cor_esq_inicial = cor('esq')
     cor_dir_inicial = cor('dir')
     while cor_dir_inicial==cor('dir') and cor('esq')==cor_esq_inicial:
