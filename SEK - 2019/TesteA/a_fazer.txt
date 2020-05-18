@@ -1,0 +1,6 @@
+*Programação 1*
+
+    1.Calibrar o verde do robô (ele tá andando muito pra frente na rampa e isso dá problema quando ele vem de lado)
+    2.Criar um PID pro robô (olhar anos anteriores)
+
+*Programação 2*

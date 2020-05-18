@@ -1,0 +1,19 @@
+
+E: 6   D: 6
+Borda: 1e
+E: 28   D:195
+E: 6   D: 6
+Borda: 7d
+E: 293   D:28
+E: 6   D: 6
+Borda: 7e
+E: 56   D:189
+E: 6   D: 6
+Borda: 7d
+E: 313   D:23
+E: 6   D: 6
+Borda: 1d
+E: 213   D:64
+E: 6   D: 6
+Borda: 6e
+E: 78   D:195

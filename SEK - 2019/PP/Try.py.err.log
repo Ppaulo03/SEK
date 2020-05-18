@@ -1,0 +1,4 @@
+  File "/home/robot/PP/Try.py", line 306
+    sleep(3).
+            ^
+SyntaxError: invalid syntax

@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+from ev3dev2.motor import LargeMotor, MediumMotor, MoveSteering, MoveTank, OUTPUT_A, OUTPUT_B, OUTPUT_C, OUTPUT_D
+from ev3dev2.sensor import INPUT_1, INPUT_2, INPUT_3, INPUT_4
+from ev3dev2.sensor.lego import ColorSensor , UltrasonicSensor
+from ev3dev2.sound import Sound
+from ev3dev2.button import Button
+from time import sleep
+import math
+import os.path
+
+def acompanhar_gasoduto(passos,d_meta):
+    fator = 3
+    for i in range(passos):
+        da = usl.distance_centimeters
+        steering_pair.on_for_degrees(0,15,64) #anda 2cm
+        db = usl.distance_centimeters
+        aux_1 = min(0.99, max(-0.99,(abs(da-db)/2)))
+        theta = math.asin(aux_1)
+        d_real = db*math.cos(theta)
+        aux = min(0.99, max(-0.99,(abs(d_meta-d_real)/2)))
+        theta_r = math.acos(aux)
+        theta_g = math.radians(90) + abs(theta) - abs(theta_r)
+        if db > da and d_real > d_meta: #afastando e acima da meta
+            steering_pair.on_for_degrees(-100,20,fator*theta_g)
+        elif db > da and d_real < d_meta:
+            steering_pair.on_for_degrees(100,20,fator*abs(theta-theta_r))
+        elif db < da and d_real < d_meta: #aproximando e abaixo da meta
+            steering_pair.on_for_degrees(100,20,fator*theta_g)
+        elif db < da and d_real > d_meta:
+            steering_pair.on_for_degrees(-100,20,fator*abs(theta-theta_r))
+        elif db == da and d_real > d_meta:
+            steering_pair.on_for_degrees(-100,20,fator*theta)
+        elif db == da and d_real < d_meta:
+            steering_pair.on_for_degrees(100,20,fator*theta)
+        if usl.distance_centimeters > 15 or usf.distance_centimeters < 10:
+            break
+        if cor('esq')=='vazio' or cor('dir')=='vazio':
+            global voltar_com_cano
+            global buscar_novo_cano
+            global no_gasoduto
+            voltar_com_cano = True
+            no_gasoduto = False
+            buscar_novo_cano = True
+
+def distancia(sensor):
+    a1 = sensor.distance_centimeters
+    sleep(0.05)
+    a2 = sensor.distance_centimeters
+    sleep(0.05)
+    a3 = sensor.distance_centimeters
+    sleep(0.05)
+    a4 = sensor.distance_centimeters
+    sleep(0.05)
+    a5 = sensor.distance_centimeters
+    sleep(0.05)
+    a6 = sensor.distance_centimeters
+    sleep(0.05)
+    a7 = sensor.distance_centimeters
+    sleep(0.05)
+    media = (a1+a2+a3+a4+a5+a6+a7)/7.0
+    return media
+
+def distancia_min(sensor):
+    a1 = sensor.distance_centimeters
+    sleep(0.05)
+    a2 = sensor.distance_centimeters
+    sleep(0.05)
+    a3 = sensor.distance_centimeters
+    sleep(0.05)
+    a4 = sensor.distance_centimeters
+    sleep(0.05)
+    a5 = sensor.distance_centimeters
+    sleep(0.05)
+    return min(a1,a2,a3,a4,a5)
+
+def distancia_do_corre(sensor):
+    a = [0,0,0,0,0,0,0,0,0,0]
+    cont = 0
+    for i in range(10):
+        a[i]=sensor.distance_centimeters
+        sleep(0.01)
+        cont = cont + a[i]
+    media = cont/10
+    var = 0
+    for i in range(10):
+        x = (a[i]-media)**2
+        var = var + x
+    stdev = (var/10)**0.5
+    mr = 0
+    c = 0
+    for i in range(10):
+        if (media-1.5*stdev) < a[i] < (media + 1.5*stdev):
+            mr = mr + a[i]
+            c = c+1
+    if mr == 0:
+        resultado = media
+    else:
+        resultado = mr/c
+    return resultado
+
+
+def checar_fim():
+    a1 = distancia_do_corre(usl)
+    steering_pair.on_for_degrees(0,15,30)
+    a2 = distancia_do_corre(usl)
+    steering_pair.on_for_degrees(0,-15,60)
+    a3 = distancia_do_corre(usl)
+    if a2-1>a1 or a3<a1+1:
+        return True
+    elif a2-1 <= a1:
+        steering_pair.on_for_degrees(0,15,30)
+        return False
+    elif a3 >= a1+1:
+        steering_pair.on_for_degrees(0,-15,30)
+        return False
+
+def achar_cano(): #começa paralelo ao cano, termina no fim do cano
+    achou_fim_cano = False
+    achou_cano = False
+    dist=[]
+    while distancia_do_corre(usl)>45:
+        steering_pair.on(0,20)
+    else:
+        steering_pair.off()
+        sound.beep()
+        steering_pair.off()
+        while not(achou_fim_cano):
+            sleep(0.02)
+            steering_pair.on_for_degrees(0,10,10)
+            sleep(0.02)
+            d = distancia_do_corre(usl)
+            dist.append(d)
+            if len(dist)>11: #ter certeza que já tem 10
+                a = 0
+                for i in range(1,11): #pega os 10 últimos e faz a média
+                    aaa = dist[-i]
+                    a = a + aaa
+                media_dos_7 = a/10
+                b = 0
+                for i in range(1,11):
+                    if abs(dist[-i]-media_dos_7)>5: #marcar quantos resultados tão instáveis
+                        b += 1
+                if b<3 and not(achou_cano):
+                    sleep(1)
+                    sound.beep()
+                    achou_cano = True
+                if b>2 and achou_cano:
+                    if checar_fim():
+                        achou_fim_cano = True
+
+
+def manobra_cano(cor_do_cano):    
+    if cor_do_cano == 'azul': c = 20
+    if cor_do_cano == 'amarelo': c = 10
+    if cor_do_cano == 'vermelho': c = 15 
+    q = 13.5 - (c/2)
+    steering_pair.on_for_degrees(0,10,30*q)
+    lm = LargeMotor(ent_motor_esq)
+    lm.on_for_degrees(20,-10*90/2.3)
+    if distancia_do_corre(usf)>45:
+        lm.on_for_degrees(10,10*90/2.3)
+        achar_cano()
+        q = 13.5 - (c/2)
+        steering_pair.on_for_degrees(0,10,30*q)
+        lm.on_for_degrees(10,-10*90/2.3)
+    while (distancia_do_corre(usf)>7):
+        steering_pair.on(0,15)
+    else:
+        steering_pair.off()
+        steering_pair.on_for_seconds(0,15,1)
+
+tamanhos=['vermelho','vermelho','amarelo','azul']
+item_lista = 0
+# Começo
+
+mapadecores=['amarelo','vermelho','azul']
+
+    while pegar_cano:#começa com o usl virado pros canos, termina com um cano na garra (meeting area à direita)
+        sound.beep()
+        cor_desejada = tamanhos[item_lista]
+        cor_estou = cor('esq')
+        indice_cor_desejada = mapadecores.index(cor_desejada)
+        indice_cor_estou = mapadecores.index(cor_estou)
+        if indice_cor_estou == indice_cor_desejada:
+            pass #pq já vai pra pegar_um_cano abaixo
+        elif indice_cor_estou > indice_cor_desejada:
+            while cor('esq')!=cor_desejada:
+                steering_pair.on(0,15)
+            else:
+                steering_pair.off()
+            #e vai pegar cano
+        elif indice_cor_desejada != 2:
+            while cor('esq')!=mapadecores[indice_cor_desejada+1]: #voltar seguindo a linha preta
+                while cor('dir') == cor1:
+                    steering_pair.on(15,-20)
+                else:
+                    steering_pair.off()
+                while cor('dir') == 'preto':
+                    steering_pair.on(0,-20)
+                else:
+                    steering_pair.off()
+                while cor('dir') != 'preto' and cor('dir') != cor1:
+                    steering_pair.on(-15,-20)
+                else:
+                    steering_pair.off()   
+            else:
+                steering_pair.off()
+        elif indice_cor_desejada == 2:
+            girar_pro_lado('dir',180)
+            #ir até o vazio, alinhar, virar e voltar
+            sound.beep()
+
+        achar_cano()
+        manobra_cano(tamanhos[item_lista])
+        pegar_o_cano()
+        global item_lista
+        item_lista += 1
+        #forçando, depois colocar dentro da função acima #ou não
+        if cor_desejada == 'azul':
+            global cano_carregado
+            cano_carregado = 20
+        elif cor_desejada == 'vermelho':
+            global cano_carregado
+            cano_carregado = 15
+        elif cor_desejada == 'amarelo':
+            global cano_carregado
+            cano_carregado = 10
+        pegar_cano = False
+        ir_pro_gasoduto = True
+
+    while ir_pro_gasoduto: #começa com a meeting area à direita, termina paralelo ao gasoduto
+        girar_pro_lado('dir',90) #prepara pra sair
+        while cor('esq')!='branco' or cor('dir')!='branco': #acha o branco
+            steering_pair.on(0,15)
+        else:
+            steering_pair.off()
+        alinhamento_pra_tras()
+        steering_pair.on_for_degrees(0,20,450)
+        girar_pro_lado('esq',85)
+        alinhamento() #chegou no vazio certo
+        steering_pair.on_for_degrees(0,-20,350)
+        girar_pro_lado('dir',90)
+        while cor('dir')!='azul': #desce de frente e sobe de costas
+            steering_pair.on(2,40)
+        else:
+            steering_pair.off()
+        steering_pair.on_for_degrees(0,60,250)
+
+        while usf.distance_centimeters > 16:
+            steering_pair.on(0,15)
+        else:
+            steering_pair.off()
+        girar_pro_lado('esq',90)
+        alinhamento()
+        steering_pair.on_for_degrees(0,-20,350)
+        girar_pro_lado('esq',180)
+        garra_g.on_for_degrees(20,-1080) #subir a garra
+        global gasoduto_com_cano
+        gasoduto_com_cano = (usl.distance_centimeters<20)
+        garra_g.on_for_degrees(20,1080) #desce a garra
+        ir_pro_gasoduto = False
+        no_gasoduto = True
+
+    while no_gasoduto: #começa paralelo ao gasoduto, termina quando o cano é posto
+        while gasoduto_com_cano and distancia(usl) < 15 and distancia(usf) > 10:
+            acompanhar_gasoduto(4,10)
+            #steering_pair.on_for_degrees(0,15,30) 
+
+            if gasoduto_com_cano and distancia(usl) < 15 and distancia(usf) > 10:
+                garra_g.on_for_degrees(20,-1080)
+                sleep(0.1)
+                global gasoduto_com_cano
+                gasoduto_com_cano = (distancia_min(usl) < 25)
+            if gasoduto_com_cano:
+                sound.speak('ok')
+                sleep(0.01)
+                garra_g.on_for_degrees(20,1080)
+                sleep(0.01)
+                
+        while gasoduto_com_cano and usf.distance_centimeters < 10:  
+            steering_pair.on_for_degrees(0,-10,100)
+            girar_pro_lado('dir',90) #ver se ele não para perto demais da nova lateral
+            global pos
+            pos = pos + 1
+            sleep(3)
+                    
+        while gasoduto_com_cano and usl.distance_centimeters > 15 and usf.distance_centimeters > 10:
+            steering_pair.on_for_degrees(0,20,650)
+            girar_pro_lado('esq',90)
+            steering_pair.on_for_degrees(0,20,350)
+            global pos
+            pos = pos - 1
+            sleep(3)
+        no_gasoduto = cano_carregado!=0
+        subir = not(no_gasoduto)
+        sound.beep()
+
+    while subir:
+        subir = False
+        pegar_cano = True
